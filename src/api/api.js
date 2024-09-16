@@ -31,4 +31,16 @@ const addPost = async (post) => {
   return response.json();
 };
 
-export {fetchPosts, fetchTags, addPost};
+const deletePost = async (id) => {
+  const response = await fetch(`http://localhost:3000/posts/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete post. Status: ${response.status}`);
+  }
+
+  return response.json(); // May return an empty object depending on your server
+};
+
+export { fetchPosts, fetchTags, addPost, deletePost };
