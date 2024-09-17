@@ -179,8 +179,22 @@
       "id": 36,
       "title": "wdwdwd",
       "tags": ["crime", "english"]
+    },
+    {
+      "id": 37,
+      "title": "this is classic and crime movie",
+      "tags": ["classic", "crime"]
+    },
+    {
+      "id": 38,
+      "title": "thidsdw",
+      "tags": ["crime"]
     }
   ],
+  "routes": {
+    "/posts/:id": "/posts/:id"
+  },
+
   "tags": [
     "classic",
     "crime",

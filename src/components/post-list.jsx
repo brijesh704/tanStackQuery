@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchPosts, fetchTags, addPost, deletePost } from "../api/api";
 
 function PostList() {
   const [page, setPage] = useState(1);
-
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [searchText, setSearchText] = useState("");
   const queryClient = useQueryClient();
 
   const {
@@ -16,16 +18,8 @@ function PostList() {
   } = useQuery({
     queryKey: ["posts", { page }],
     queryFn: () => fetchPosts(page),
-    // 👇 will run query every interval
-    // refreshInterval: 1000 * 60,
-    // 👇 Query runs when this is true
-    // enabled: true,
-    // 👇 while staletime lasts, it wont refetch on remount
+
     staleTime: 1000 * 60 * 5,
-    // 👇 Dont allow caching
-    // gcTime: 0,
-    // 👇 keeps the last used data
-    // placeholderData: (previousData) => previousData,,
   });
 
   const { data: tagsData, isLoading: isTagsLoading } = useQuery({
@@ -35,13 +29,6 @@ function PostList() {
     staleTime: Infinity,
   });
 
-  const { data: otherdata } = useQuery({
-    queryKey: ["otherdata"],
-    queryFn: () => {
-      return fetch("https://jsonplaceholder.typicode.com/todos/1");
-    },
-  });
-
   const {
     mutate,
     isPending,
@@ -49,33 +36,47 @@ function PostList() {
     reset,
   } = useMutation({
     mutationFn: addPost,
-    //👇 num of times it will retry before failing
+
     retry: 3,
     onMutate: async () => {
-      // 👇 Can be used to cancel outgoing queries
       await queryClient.cancelQueries({ queryKey: ["posts"], exact: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        // 👇 Invalidate queries with a key that starts with `posts`
         queryKey: ["posts", { page }],
-        // 👇 invalidate exact query
-        // exact: true,
-        // 👇 invalidate specific query key/s
-        // queryKey: ["todos", {page: 10}],
-        // 👇 invalidate range of query keys
-        // predicate: (query) => query.queryKey[0] === "posts" && query.queryKey[1].page >= 2,
       });
-
-      // 👇 We can manually add to posts to avoid api calls
-      //   queryClient.setQueryData(["posts"], (old) => [data, ...old]);
     },
   });
+
+  useEffect(() => {
+    if (postData) {
+      let filtered = postData.data;
+      console.log(filtered, "filtered ");
+
+      if (searchText) {
+        filtered = filtered?.filter((post) =>
+          post.title.toLowerCase().includes(searchText.toLowerCase())
+        );
+      }
+
+      if (selectedTags.length > 0) {
+        filtered = filtered?.filter((post) =>
+          selectedTags.every((tag) => post.tags.includes(tag))
+        );
+      }
+
+      setFilteredPosts(filtered);
+      setPage(1);
+    }
+  }, [searchText, selectedTags]);
 
   const { mutate: deleteMutate, isPending: isDeletePending } = useMutation({
     mutationFn: deletePost,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts", { page }] }); // Invalidate posts query after delete
+      queryClient.invalidateQueries(["posts", { page }]);
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["posts", { page }] });
     },
   });
 
@@ -91,17 +92,36 @@ function PostList() {
 
     mutate({ id: postData?.items + 1, title, tags });
 
-    e.target.reset(); // reset form
+    e.target.reset();
   };
 
   const handleDelete = (id) => {
-    deleteMutate(id);
+    console.log(id, "here is id");
+
+    deleteMutate({ id });
+  };
+  const handleTagChange = (tag) => {
+    setSelectedTags((prevTags) =>
+      prevTags.includes(tag)
+        ? prevTags.filter((t) => t !== tag)
+        : [...prevTags, tag]
+    );
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchText(e.target.value);
   };
 
   return (
     <div className="container">
       <form onSubmit={handleSubmit}>
         {isPostError && <h5 onClick={() => reset()}>Unable to Post</h5>}
+        <input
+          type="text"
+          placeholder="Search by title..."
+          value={searchText}
+          onChange={handleSearchChange}
+        />
         <input
           type="text"
           placeholder="Enter your post.."
@@ -112,7 +132,13 @@ function PostList() {
           {tagsData?.map((tag) => {
             return (
               <div key={tag}>
-                <input name={tag} id={tag} type="checkbox" />
+                <input
+                  type="checkbox"
+                  name={tag}
+                  id={tag}
+                  checked={selectedTags.includes(tag)}
+                  onChange={() => handleTagChange(tag)}
+                />
                 <label htmlFor={tag}>{tag}</label>
               </div>
             );
@@ -122,19 +148,25 @@ function PostList() {
           {isPending ? "Posting..." : "Post"}
         </button>
       </form>
+
+      {/* post Data */}
       {isLoading && isTagsLoading && <p>Loading...</p>}
       {isError && <p>{error?.message}</p>}
-      {postData?.data?.map((post) => (
-        <div key={post.id} className="post">
-          <div>{post.title}</div>
-          {post.tags.map((tag) => {
-            return <span key={tag}>{tag}</span>;
-          })}
-          {/* <button onClick={handleDelete(post.id)}>
-            {isDeletePending ? "Deleting..." : "Delete"}
-          </button> */}
-        </div>
-      ))}
+      {(filteredPosts.length > 0 ? filteredPosts : postData?.data)?.map(
+        (post) => (
+          <div key={post.id} className="post">
+            <div>{post.title}</div>
+            {post.tags.map((tag) => {
+              return <span key={tag}>{tag}</span>;
+            })}
+            <div className="btndlt">
+              <button onClick={() => handleDelete(post.id)}>
+                {isDeletePending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        )
+      )}
 
       {/* Pagination */}
       <div className="pages">
