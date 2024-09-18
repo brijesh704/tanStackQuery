@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchPosts, fetchTags, addPost, deletePost } from "../api/api";
+import debounce from "lodash/debounce";
 
 function PostList() {
   const [page, setPage] = useState(1);
-  const [selectedTags, setSelectedTags] = useState([]);
+
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [searchText, setSearchText] = useState("");
   const queryClient = useQueryClient();
@@ -59,16 +60,10 @@ function PostList() {
         );
       }
 
-      if (selectedTags.length > 0) {
-        filtered = filtered?.filter((post) =>
-          selectedTags.every((tag) => post.tags.includes(tag))
-        );
-      }
-
       setFilteredPosts(filtered);
       setPage(1);
     }
-  }, [searchText, selectedTags]);
+  }, [searchText]);
 
   const { mutate: deleteMutate, isPending: isDeletePending } = useMutation({
     mutationFn: deletePost,
@@ -100,16 +95,12 @@ function PostList() {
 
     deleteMutate({ id });
   };
-  const handleTagChange = (tag) => {
-    setSelectedTags((prevTags) =>
-      prevTags.includes(tag)
-        ? prevTags.filter((t) => t !== tag)
-        : [...prevTags, tag]
-    );
-  };
 
-  const handleSearchChange = (e) => {
-    setSearchText(e.target.value);
+  const handleInputChange = (e) => {
+    let text = e.target.value;
+
+    console.log(text);
+    setSearchText(text);
   };
 
   return (
@@ -120,7 +111,8 @@ function PostList() {
           type="text"
           placeholder="Search by title..."
           value={searchText}
-          onChange={handleSearchChange}
+          onChange={handleInputChange}
+          className="search-input"
         />
         <input
           type="text"
@@ -132,13 +124,7 @@ function PostList() {
           {tagsData?.map((tag) => {
             return (
               <div key={tag}>
-                <input
-                  type="checkbox"
-                  name={tag}
-                  id={tag}
-                  checked={selectedTags.includes(tag)}
-                  onChange={() => handleTagChange(tag)}
-                />
+                <input type="checkbox" name={tag} id={tag} />
                 <label htmlFor={tag}>{tag}</label>
               </div>
             );
