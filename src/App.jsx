@@ -7,7 +7,12 @@ function App() {
   return (
     <div>
       <h2 className="title">My Posts</h2>
-      <button onClick={() => setToggle(!toggle)}>Toggle</button>
+      <button
+        className={`buttontgl ${toggle ? "active" : ""}`}
+        onClick={() => setToggle(!toggle)}
+      >
+        Toggle
+      </button>
       {toggle && <PostList />}
     </div>
   );
